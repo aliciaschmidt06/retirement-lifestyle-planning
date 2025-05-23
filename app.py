@@ -8,32 +8,32 @@ st.header("1. Financial Snapshot")
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    car = st.number_input("Car value ($)", min_value=0.0, value=0.0, step=1000.0)
+    car = st.number_input("Car value ($)", min_value=0.0, value=0.0, step=5000.0)
 with col2:
-    house = st.number_input("House value ($)", min_value=0.0, value=0.0, step=1000.0)
+    house = st.number_input("House value ($)", min_value=0.0, value=0.0, step=5000.0)
 with col3:
-    other = st.number_input("Other assets? ($)", min_value=0.0, value=0.0, step=1000.0)
+    other = st.number_input("Other assets? ($)", min_value=0.0, value=0.0, step=5000.0)
 with col4:
-    savings = st.number_input("Savings ($)", min_value=0.0, value=0.0, step=1000.0)
+    savings = st.number_input("Savings ($)", min_value=0.0, value=0.0, step=5000.0)
 
 assets = car + house + savings + other
 
 col5, col6 = st.columns(2)
 salaries = []
 with col5:
-    salary = st.number_input("Yearly Salary ($)", min_value=0.0, value=0.0, step=1000.0)
+    salary = st.number_input("Yearly Salary ($)", min_value=0.0, value=0.0, step=25000.0)
     salaries.append(salary)
 with col6:
     add_salary = st.checkbox("Add another salary")
     if add_salary:
-        salary2 = st.number_input("Additional Yearly Salary ($)", min_value=0.0, value=0.0, step=1000.0)
+        salary2 = st.number_input("Additional Yearly Salary ($)", min_value=0.0, value=0.0, step=25000.0)
         salaries.append(salary2)
 
 col7, col8 = st.columns(2)
 with col7:
-    debt = st.number_input("Total Debt ($)", min_value=0.0, value=0.0, step=1000.0)
+    debt = st.number_input("Total Debt ($)", min_value=0.0, value=0.0, step=5000.0)
 with col8:
-    investments = st.number_input("Current Investment Holdings ($)", min_value=0.0, value=0.0, step=1000.0)
+    investments = st.number_input("Current Investment Holdings ($)", min_value=0.0, value=0.0, step=10000.0)
 
 total_salary = sum(salaries)
 
@@ -48,13 +48,13 @@ st.header("2. Retirement Projection Calculator")
 
 col9, col10, col11 = st.columns(3)
 with col9:
-    capital = st.number_input("Current Capital ($)", min_value=0.0, value=0.0, step=1000.0)
+    capital = st.number_input("Current Capital ($)", min_value=0.0, value=0.0, step=25000.0)
     contribution = st.number_input("Annual Contribution ($)", min_value=0.0, value=0.0, step=1000.0)
 with col10:
     age = st.number_input("Your Current Age", min_value=0, max_value=100, value=30)
     years = st.number_input("Number of Years to Contribute", min_value=0, max_value=70, value=30)
 with col11:
-    interest = st.number_input("Expected Annual Interest Rate (%)", min_value=0.0, value=5.0)
+    interest = st.number_input("Expected Annual Interest Rate (%)", min_value=0.0, value=5.0, step=1.0)
 
 if st.button("📈 Calculate Retirement Funds"):
     r = interest / 100
