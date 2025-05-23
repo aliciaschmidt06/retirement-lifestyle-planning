@@ -85,7 +85,7 @@ if "future_value" in st.session_state and "retirement_age" in st.session_state:
         monthly_spending = yearly_spending / 12
         with col13:
             st.info(f"Spend about **${yearly_spending:,.2f}**/year")
-            st.info(f"or **${monthly_spending:,.2f}**/month until age {target} (years left: {remaining_years})")
+            st.info(f"or **${monthly_spending:,.2f}**/month until age {target} (years to spend it: {remaining_years})")
     else:
         st.warning("You will be 100 or older at the end of your investment period.")
 else:
