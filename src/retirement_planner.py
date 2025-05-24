@@ -136,3 +136,89 @@ def show_retirement_planner():
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+
+        # Gather and display scenario investment summary
+        summary_data = []
+        for file in selected_files:
+            with open(os.path.join(SCENARIOS_DIR, file)) as f:
+                data = json.load(f)
+                total_contributions = sum(contrib * yrs for contrib, yrs in data["contributions"])
+                total_invested = data["capital"] + total_contributions
+                summary_data.append({
+                    "Scenario Name": data["name"],
+                    "Capital ($)": f"${data['capital']:,.2f}",
+                    "Years": f"{yrs}",
+                    "Total Contributions ($)": f"${total_contributions:,.2f}",
+                    "Total Invested ($)": f"${total_invested:,.2f}"
+                })
+
+        st.subheader("📋 Scenario Summary Table")
+        st.table(summary_data)
+
+        # Friendly scenario comparison
+        if len(summary_data) >= 2:
+            st.subheader("🔍 Scenario Insights")
+
+            base_file = selected_files[0]
+            base_data = json.load(open(os.path.join(SCENARIOS_DIR, base_file)))
+            base_name = base_data["name"]
+            base_years = sum(y for c, y in base_data["contributions"])
+            base_capital = base_data["capital"]
+            base_contrib_total = sum(c * y for c, y in base_data["contributions"])
+            base_invested = base_capital + base_contrib_total
+            base_outcome = base_data["future_value"]
+
+            insights = []
+
+            for i in range(1, len(selected_files)):
+                compare_file = selected_files[i]
+                compare_data = json.load(open(os.path.join(SCENARIOS_DIR, compare_file)))
+                compare_name = compare_data["name"]
+                compare_years = sum(y for c, y in compare_data["contributions"])
+                compare_capital = compare_data["capital"]
+                compare_contrib_total = sum(c * y for c, y in compare_data["contributions"])
+                compare_invested = compare_capital + compare_contrib_total
+                compare_outcome = compare_data["future_value"]
+
+                year_diff = compare_years - base_years
+                cost_diff = compare_invested - base_invested
+                outcome_diff = compare_outcome - base_outcome
+
+                # Friendly phrasing
+                year_text = f"{abs(year_diff)} year{'s' if abs(year_diff) != 1 else ''} " + ("longer" if year_diff > 0 else "shorter" if year_diff < 0 else "with the same duration")
+                cost_text = f"more expensive by ${abs(cost_diff):,.0f}" if cost_diff > 0 else f"cheaper by ${abs(cost_diff):,.0f}" if cost_diff < 0 else "same cost"
+                outcome_text = f" earned ${abs(outcome_diff):,.0f} more than '{base_name}'" if outcome_diff > 0 else f" earned ${abs(outcome_diff):,.0f} less than '{base_name}'" if outcome_diff < 0 else "same final amount"
+
+                insights.append(f"Compared to {base_name}, {compare_name} was {year_text}, {cost_text}, and  {outcome_text}.")
+
+            for line in insights:
+                st.write("- " + line)
+        else:
+            st.info("Select at least two scenarios to view insights.")
+        
+        # Final ranking
+        st.subheader("🏆 Ranked Retirement Plans")
+        st.write("Rankings based on least expensive overtime offering highest yield.")
+
+        ranking = []
+        for file in selected_files:
+            data = json.load(open(os.path.join(SCENARIOS_DIR, file)))
+            contrib_total = sum(c * y for c, y in data["contributions"])
+            invested_total = data["capital"] + contrib_total
+            future_value = data["future_value"]
+
+            ranking.append({
+                "Scenario Name": data["name"],
+                "Final Value ($)": future_value,
+                "Total Invested ($)": invested_total,
+            })
+
+        # Sort by highest return, then lowest cost
+        ranking.sort(key=lambda x: (-x["Final Value ($)"], x["Total Invested ($)"]))
+
+        for i, row in enumerate(ranking):
+            row["Rank"] = i + 1
+            row["Final Value ($)"] = f"${row['Final Value ($)']:,.2f}"
+            row["Total Invested ($)"] = f"${row['Total Invested ($)']:,.2f}"
+
+        st.table(ranking)

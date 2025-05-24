@@ -1,1 +1,2 @@
 scenarios/*
+src/__pycache__/*
