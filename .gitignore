@@ -1,2 +1,3 @@
 scenarios/*
 src/__pycache__/*
+*.pyc
