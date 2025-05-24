@@ -1,10 +1,12 @@
 services:
   retirement-planner:
     build: .
+    container_name: retirement-planner
     image: retirement-planner
     restart: unless-stopped
     ports:
       - "8502:8502"
     volumes:
+      - ./scenarios:/app/scenarios
       - .:/app
     command: streamlit run app.py --server.port=8502 --server.address=0.0.0.0

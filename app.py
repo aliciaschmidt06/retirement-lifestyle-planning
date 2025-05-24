@@ -1,7 +1,13 @@
 import streamlit as st
+import os
+import json
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Retirement Lifestyle Planner", layout="wide")
-st.title("🏖️ Retirement Lifestyle Planner")
+st.title("\U0001F3D6️ Retirement Lifestyle Planner")
+
+SCENARIOS_DIR = "scenarios"
+os.makedirs(SCENARIOS_DIR, exist_ok=True)
 
 # ---- Section 1: Financial Snapshot ----
 st.header("1. Financial Snapshot")
@@ -38,7 +44,7 @@ with col8:
 total_salary = sum(salaries)
 
 st.markdown("---")
-st.subheader("💰 Summary")
+st.subheader("\U0001F4B0 Summary")
 st.write(f"**Total Household Salary:** ${total_salary:,.2f}")
 net_worth = (assets + investments) - debt
 st.write(f"**Net Worth (Assets - Debt + Investments):** ${net_worth:,.2f}")
@@ -75,6 +81,7 @@ for i in range(st.session_state.contribution_rows):
 # Button to add new phase
 if st.button("➕ Add Another Contribution Phase"):
     st.session_state.contribution_rows += 1
+    st.rerun()
 
 # Calculate
 if st.button("📈 Calculate Retirement Funds"):
@@ -91,6 +98,32 @@ if st.button("📈 Calculate Retirement Funds"):
     st.session_state.retirement_age = retirement_age
     st.session_state.age = age  # for validation
     st.success(f"You'll have **${total_value:,.2f}** by age **{retirement_age}**.")
+
+# ---- Section: Save Scenario ----
+if "future_value" in st.session_state:
+    with st.expander("💾 Save this Scenario for Comparison"):
+        with st.form("save_scenario_form"):
+            scenario_name = st.text_input("Scenario Name")
+            save_clicked = st.form_submit_button("💾 Save Scenario")
+            if save_clicked:
+                if scenario_name.strip() == "":
+                    st.warning("Please enter a scenario name.")
+                else:
+                    scenario_data = {
+                        "name": scenario_name,
+                        "capital": capital,
+                        "age": age,
+                        "interest": interest,
+                        "contributions": new_contributions,
+                        "future_value": st.session_state.future_value,
+                        "retirement_age": st.session_state.retirement_age,
+                    }
+                    try:
+                        with open(os.path.join(SCENARIOS_DIR, f"{scenario_name}.json"), "w") as f:
+                            json.dump(scenario_data, f, indent=2)
+                        st.success(f"Scenario '{scenario_name}' saved successfully.")
+                    except Exception as e:
+                        st.error(f"Failed to save scenario: {e}")
 
 # ---- Section 3: Post-Retirement Spending Plan ----
 st.header("3. Post-Retirement Spending Plan")
@@ -116,4 +149,37 @@ if "future_value" in st.session_state and "retirement_age" in st.session_state:
     else:
         st.warning("You will be 100 or older at the end of your investment period.")
 else:
-    st.info("👆 Calculate retirement funds first to unlock this section.")
+    st.info("\U0001F446 Calculate retirement funds first to unlock this section.")
+
+# ---- Sidebar: Compare Scenarios ----
+st.sidebar.header("📊 Compare Retirement Scenarios")
+scenario_files = [f for f in os.listdir(SCENARIOS_DIR) if f.endswith(".json")]
+selected_files = st.sidebar.multiselect("Select Scenarios to Compare", scenario_files)
+
+if st.sidebar.button("Compare Selected Scenarios") and selected_files:
+    fig, ax = plt.subplots()
+
+    for file in selected_files:
+        with open(os.path.join(SCENARIOS_DIR, file)) as f:
+            data = json.load(f)
+            age = data["age"]
+            value = data["capital"]
+            r = data["interest"] / 100
+            x_vals = []
+            y_vals = []
+
+            for contrib, yrs in data["contributions"]:
+                for i in range(yrs):
+                    value = value * (1 + r) + contrib
+                    x_vals.append(age)
+                    y_vals.append(value)
+                    age += 1
+
+            ax.plot(x_vals, y_vals, label=f"{data['name']} ({data['interest']}%)")
+
+    ax.set_xlabel("Age")
+    ax.set_ylabel("Investment Value ($)")
+    ax.set_title("Retirement Scenario Comparison")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
