@@ -46,24 +46,51 @@ st.write(f"**Net Worth (Assets - Debt + Investments):** ${net_worth:,.2f}")
 # ---- Section 2: Retirement Calculator ----
 st.header("2. Retirement Projection Calculator")
 
-col9, col10, col11 = st.columns(3)
-with col9:
-    capital = st.number_input("Current Capital ($)", min_value=0.0, value=0.0, step=25000.0)
-    contribution = st.number_input("Annual Contribution ($)", min_value=0.0, value=0.0, step=1000.0)
-with col10:
+# Initial Info
+col1, col2, col3 = st.columns(3)
+with col1:
+    capital = st.number_input("Current Capital ($)", min_value=0.0, value=0.0, step=1000.0)
+with col2:
     age = st.number_input("Your Current Age", min_value=0, max_value=100, value=30)
-    years = st.number_input("Number of Years to Contribute", min_value=0, max_value=70, value=30)
-with col11:
-    interest = st.number_input("Expected Annual Interest Rate (%)", min_value=0.0, value=5.0, step=1.0)
+with col3:
+    interest = st.number_input("Expected Annual Interest Rate (%)", min_value=0.0, value=7.0, step=0.1)
 
+# Initialize contribution list
+if "contribution_rows" not in st.session_state:
+    st.session_state.contribution_rows = 1
+if "contributions" not in st.session_state:
+    st.session_state.contributions = []
+
+# Dynamic Contribution Rows
+st.subheader("Contribution Phases")
+new_contributions = []
+for i in range(st.session_state.contribution_rows):
+    col1, col2 = st.columns(2)
+    with col1:
+        contrib = st.number_input(f"Annual Contribution #{i+1}", min_value=0.0, step=1000.0, key=f"contrib_{i}")
+    with col2:
+        yrs = st.number_input(f"Years #{i+1}", min_value=1, max_value=100, step=1, key=f"years_{i}")
+    new_contributions.append((contrib, yrs))
+
+# Button to add new phase
+if st.button("➕ Add Another Contribution Phase"):
+    st.session_state.contribution_rows += 1
+
+# Calculate
 if st.button("📈 Calculate Retirement Funds"):
     r = interest / 100
-    future_value = capital * (1 + r) ** years + contribution * (((1 + r) ** years - 1) / r)
-    retirement_age = age + years
-    st.session_state.future_value = future_value
+    total_years = 0
+    total_value = capital
+
+    for c, y in new_contributions:
+        total_value = total_value * (1 + r) ** y + c * (((1 + r) ** y - 1) / r)
+        total_years += y
+
+    retirement_age = age + total_years
+    st.session_state.future_value = total_value
     st.session_state.retirement_age = retirement_age
-    st.session_state.age = age  # needed for validation later
-    st.success(f"You'll have ${future_value:,.2f} by age {retirement_age}.")
+    st.session_state.age = age  # for validation
+    st.success(f"You'll have **${total_value:,.2f}** by age **{retirement_age}**.")
 
 # ---- Section 3: Post-Retirement Spending Plan ----
 st.header("3. Post-Retirement Spending Plan")
@@ -73,7 +100,7 @@ if "future_value" in st.session_state and "retirement_age" in st.session_state:
     with col12:
         target = st.number_input(
             "Target death age (lol)",
-            min_value=st.session_state.age,
+            min_value=st.session_state.age + 1,
             max_value=130,
             value=100,
             key="target_age"
@@ -85,7 +112,7 @@ if "future_value" in st.session_state and "retirement_age" in st.session_state:
         monthly_spending = yearly_spending / 12
         with col13:
             st.info(f"Spend about **${yearly_spending:,.2f}**/year")
-            st.info(f"or **${monthly_spending:,.2f}**/month until age {target} (years to spend it: {remaining_years})")
+            st.info(f"or **${monthly_spending:,.2f}**/month until age {target} (years to spend: {remaining_years})")
     else:
         st.warning("You will be 100 or older at the end of your investment period.")
 else:
