@@ -1,3 +1,6 @@
+# Ignore specific scenario files
 scenarios/*
-src/__pycache__/*
-*.pyc
+
+# Ignore Python bytecode and __pycache__ folders
+__pycache__/
+*.py[cod]
