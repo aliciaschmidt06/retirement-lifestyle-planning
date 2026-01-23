@@ -2,55 +2,180 @@ import streamlit as st
 import os
 import json
 import matplotlib.pyplot as plt
+import numpy as np
 
 def show_retirement_planner():
-    st.title("\U0001F3D6️ Retirement Lifestyle Planner")
+    st.title("🏖️ Retirement Lifestyle Planner")
     st.header("Retirement Projection Calculator")
 
     SCENARIOS_DIR = "scenarios"
     os.makedirs(SCENARIOS_DIR, exist_ok=True)
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         capital = st.number_input("Current Capital ($)", min_value=0.0, value=0.0, step=1000.0)
     with col2:
         age = st.number_input("Your Current Age", min_value=0, max_value=100, value=30)
     with col3:
         interest = st.number_input("Expected Annual Interest Rate (%)", min_value=0.0, value=7.0, step=0.1)
+    with col4:
+        total_years = st.number_input("Planning Period (Years)", min_value=1, max_value=60, value=30, step=1)
 
-    if "contribution_rows" not in st.session_state:
-        st.session_state.contribution_rows = 1
-    if "contributions" not in st.session_state:
-        st.session_state.contributions = []
+    if "contribution_phases" not in st.session_state:
+        st.session_state.contribution_phases = []
 
-    st.subheader("Contribution Phases")
-    new_contributions = []
-    for i in range(st.session_state.contribution_rows):
-        col1, col2 = st.columns(2)
+    st.subheader("📅 Contribution Timeline")
+    st.write(f"Define contribution phases across your {total_years}-year planning period. Phases can overlap to model additional contributions during specific periods.")
+
+    # Display existing phases
+    if st.session_state.contribution_phases:
+        st.markdown("##### Current Phases:")
+        for idx, phase in enumerate(st.session_state.contribution_phases):
+            col_a, col_b, col_c, col_d, col_e = st.columns([2, 2, 2, 2, 1])
+            with col_a:
+                st.text(f"Phase {idx+1}")
+            with col_b:
+                st.text(f"${phase['amount']:,.0f}/year")
+            with col_c:
+                st.text(f"Years {phase['start_year']} to {phase['start_year'] + phase['duration'] - 1}")
+            with col_d:
+                st.text(f"Duration: {phase['duration']} years")
+            with col_e:
+                if st.button("🗑️", key=f"delete_{idx}"):
+                    st.session_state.contribution_phases.pop(idx)
+                    st.rerun()
+
+    # Add new phase form
+    with st.expander("➕ Add New Contribution Phase", expanded=len(st.session_state.contribution_phases) == 0):
+        col1, col2, col3 = st.columns(3)
         with col1:
-            contrib = st.number_input(f"Annual Contribution #{i+1}", min_value=0.0, step=1000.0, key=f"contrib_{i}")
+            new_amount = st.number_input("Annual Contribution ($)", min_value=0.0, step=1000.0, key="new_amount")
         with col2:
-            yrs = st.number_input(f"Years #{i+1}", min_value=1, max_value=100, step=1, key=f"years_{i}")
-        new_contributions.append((contrib, yrs))
+            new_start = st.number_input("Start Year", min_value=0, max_value=total_years-1, value=0, step=1, key="new_start")
+        with col3:
+            max_duration = total_years - new_start
+            new_duration = st.number_input("Duration (Years)", min_value=1, max_value=max_duration, value=min(10, max_duration), step=1, key="new_duration")
+        
+        if st.button("Add Phase"):
+            end_year = new_start + new_duration
+            if end_year > total_years:
+                st.error(f"Phase extends beyond planning period (year {total_years})")
+            else:
+                st.session_state.contribution_phases.append({
+                    "amount": new_amount,
+                    "start_year": new_start,
+                    "duration": new_duration
+                })
+                st.rerun()
 
-    if st.button("➕ Add Another Contribution Phase"):
-        st.session_state.contribution_rows += 1
-        st.rerun()
+    # Visualize timeline
+    if st.session_state.contribution_phases:
+        st.markdown("##### Timeline Visualization")
+        
+        # Create timeline array showing total contributions per year
+        yearly_contributions = np.zeros(total_years)
+        for phase in st.session_state.contribution_phases:
+            start = phase['start_year']
+            end = start + phase['duration']
+            yearly_contributions[start:end] += phase['amount']
+        
+        # Plot the timeline
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), gridspec_kw={'height_ratios': [1, 3]})
+        
+        # Top chart: Stacked phases
+        ax1.set_xlim(-0.5, total_years - 0.5)
+        ax1.set_ylim(0, len(st.session_state.contribution_phases) + 0.5)
+        ax1.set_xlabel("Year")
+        ax1.set_ylabel("Phases")
+        ax1.set_title("Contribution Phases Timeline")
+        colors = plt.cm.Set3(np.linspace(0, 1, len(st.session_state.contribution_phases)))
+        
+        for idx, phase in enumerate(st.session_state.contribution_phases):
+            start = phase['start_year']
+            duration = phase['duration']
+            ax1.barh(idx, duration, left=start, height=0.8, 
+                    label=f"Phase {idx+1}: ${phase['amount']:,.0f}/yr",
+                    color=colors[idx], edgecolor='black', linewidth=1)
+            # Add text in the middle of the bar
+            mid_point = start + duration / 2
+            ax1.text(mid_point, idx, f"${phase['amount']/1000:.0f}k", 
+                    ha='center', va='center', fontsize=9, fontweight='bold')
+        
+        ax1.legend(loc='upper right', fontsize=8)
+        ax1.grid(True, axis='x', alpha=0.3)
+        ax1.set_yticks(range(len(st.session_state.contribution_phases)))
+        ax1.set_yticklabels([f"Phase {i+1}" for i in range(len(st.session_state.contribution_phases))])
+        
+        # Bottom chart: Total contributions per year
+        ax2.bar(range(total_years), yearly_contributions, color='steelblue', edgecolor='black', linewidth=0.5)
+        ax2.set_xlabel("Year")
+        ax2.set_ylabel("Total Annual Contribution ($)")
+        ax2.set_title("Combined Annual Contributions (All Phases)")
+        ax2.grid(True, axis='y', alpha=0.3)
+        ax2.set_xlim(-0.5, total_years - 0.5)
+        
+        # Format y-axis to show dollar amounts
+        ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}k' if x >= 1000 else f'${x:.0f}'))
+        
+        plt.tight_layout()
+        st.pyplot(fig)
+        
+        # Show summary stats
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1:
+            total_invested = sum(yearly_contributions)
+            st.metric("Total Contributions", f"${total_invested:,.0f}")
+        with col_s2:
+            max_yearly = np.max(yearly_contributions)
+            st.metric("Peak Annual Contribution", f"${max_yearly:,.0f}")
+        with col_s3:
+            avg_yearly = np.mean(yearly_contributions)
+            st.metric("Average Annual Contribution", f"${avg_yearly:,.0f}")
 
     if st.button("📈 Calculate Retirement Funds"):
-        r = interest / 100
-        total_years = 0
-        total_value = capital
-
-        for c, y in new_contributions:
-            total_value = total_value * (1 + r) ** y + c * (((1 + r) ** y - 1) / r)
-            total_years += y
-
-        retirement_age = age + total_years
-        st.session_state.future_value = total_value
-        st.session_state.retirement_age = retirement_age
-        st.session_state.age = age
-        st.success(f"You'll have **${total_value:,.2f}** by age **{retirement_age}**.")
+        if not st.session_state.contribution_phases:
+            st.warning("Please add at least one contribution phase.")
+        else:
+            r = interest / 100
+            
+            # Build year-by-year calculation
+            yearly_contributions = np.zeros(total_years)
+            for phase in st.session_state.contribution_phases:
+                start = phase['start_year']
+                end = start + phase['duration']
+                yearly_contributions[start:end] += phase['amount']
+            
+            # Calculate future value year by year
+            values_by_year = [capital]  # Start with initial capital
+            current_value = capital
+            
+            for year in range(total_years):
+                # Add contribution at start of year, then apply growth for the full year
+                current_value = (current_value + yearly_contributions[year]) * (1 + r)
+                values_by_year.append(current_value)
+            
+            total_value = current_value
+            retirement_age = age + total_years
+            
+            st.session_state.future_value = total_value
+            st.session_state.retirement_age = retirement_age
+            st.session_state.age = age
+            st.session_state.values_by_year = values_by_year
+            st.session_state.total_years = total_years
+            
+            st.success(f"You'll have **${total_value:,.2f}** by age **{retirement_age}**.")
+            
+            # Show growth chart
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ages = list(range(age, age + total_years + 1))  # Include starting age
+            ax.plot(ages, values_by_year, marker='o', markersize=3, linewidth=2, color='green')
+            ax.set_xlabel("Age")
+            ax.set_ylabel("Portfolio Value ($)")
+            ax.set_title("Investment Growth Over Time")
+            ax.grid(True, alpha=0.3)
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}k'))
+            plt.tight_layout()
+            st.pyplot(fig)
 
     if "future_value" in st.session_state:
         with st.expander("💾 Save this Scenario for Comparison"):
@@ -66,7 +191,8 @@ def show_retirement_planner():
                             "capital": capital,
                             "age": age,
                             "interest": interest,
-                            "contributions": new_contributions,
+                            "total_years": total_years,
+                            "contribution_phases": st.session_state.contribution_phases,
                             "future_value": st.session_state.future_value,
                             "retirement_age": st.session_state.retirement_age,
                         }
@@ -100,14 +226,14 @@ def show_retirement_planner():
         else:
             st.warning("You will be 100 or older at the end of your investment period.")
     else:
-        st.info("\U0001F446 Calculate retirement funds first to unlock this section.")
+        st.info("👆 Calculate retirement funds first to unlock this section.")
 
     st.sidebar.header("📊 Compare Retirement Scenarios")
     scenario_files = [f for f in os.listdir(SCENARIOS_DIR) if f.endswith(".json")]
     selected_files = st.sidebar.multiselect("Select Scenarios to Compare", scenario_files)
 
     if st.sidebar.button("Compare Selected Scenarios") and selected_files:
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(10, 6))
 
         for file in selected_files:
             with open(os.path.join(SCENARIOS_DIR, file)) as f:
@@ -115,26 +241,50 @@ def show_retirement_planner():
                 initial_age = data["age"]
                 initial_value = data["capital"]
                 r = data["interest"] / 100
-                x_vals = []
-                y_vals = []
-
-                age = initial_age
-                value = initial_value
-
-                for contrib, yrs in data["contributions"]:
-                    for _ in range(yrs):
-                        value = value * (1 + r) + contrib
+                
+                # Check if it's old format or new format
+                if "contribution_phases" in data:
+                    # New format with timeline
+                    total_years = data.get("total_years", 30)
+                    yearly_contributions = np.zeros(total_years)
+                    for phase in data["contribution_phases"]:
+                        start = phase['start_year']
+                        end = start + phase['duration']
+                        yearly_contributions[start:end] += phase['amount']
+                    
+                    x_vals = []
+                    y_vals = []
+                    age = initial_age
+                    value = initial_value
+                    
+                    for year in range(total_years):
+                        value = value * (1 + r) + yearly_contributions[year]
                         x_vals.append(age)
                         y_vals.append(value)
                         age += 1
+                else:
+                    # Old format - sequential phases
+                    x_vals = []
+                    y_vals = []
+                    age = initial_age
+                    value = initial_value
+                    
+                    for contrib, yrs in data["contributions"]:
+                        for _ in range(yrs):
+                            value = value * (1 + r) + contrib
+                            x_vals.append(age)
+                            y_vals.append(value)
+                            age += 1
 
-                ax.plot(x_vals, y_vals, label=f"{data['name']} ({data['interest']}%)")
+                ax.plot(x_vals, y_vals, label=f"{data['name']} ({data['interest']}%)", linewidth=2, marker='o', markersize=3)
 
         ax.set_xlabel("Age")
         ax.set_ylabel("Investment Value ($)")
         ax.set_title("Retirement Scenario Comparison")
         ax.legend()
-        ax.grid(True)
+        ax.grid(True, alpha=0.3)
+        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x/1000:.0f}k'))
+        plt.tight_layout()
         st.pyplot(fig)
 
         # Gather and display scenario investment summary
@@ -142,59 +292,33 @@ def show_retirement_planner():
         for file in selected_files:
             with open(os.path.join(SCENARIOS_DIR, file)) as f:
                 data = json.load(f)
-                total_contributions = sum(contrib * yrs for contrib, yrs in data["contributions"])
+                
+                if "contribution_phases" in data:
+                    # New format
+                    total_years = data.get("total_years", 30)
+                    yearly_contributions = np.zeros(total_years)
+                    for phase in data["contribution_phases"]:
+                        start = phase['start_year']
+                        end = start + phase['duration']
+                        yearly_contributions[start:end] += phase['amount']
+                    total_contributions = sum(yearly_contributions)
+                    years = total_years
+                else:
+                    # Old format
+                    total_contributions = sum(contrib * yrs for contrib, yrs in data["contributions"])
+                    years = sum(yrs for _, yrs in data["contributions"])
+                
                 total_invested = data["capital"] + total_contributions
                 summary_data.append({
                     "Scenario Name": data["name"],
                     "Capital ($)": f"${data['capital']:,.2f}",
-                    "Years": f"{yrs}",
+                    "Years": f"{years}",
                     "Total Contributions ($)": f"${total_contributions:,.2f}",
                     "Total Invested ($)": f"${total_invested:,.2f}"
                 })
 
         st.subheader("📋 Scenario Summary Table")
         st.table(summary_data)
-
-        # # Friendly scenario comparison
-        # if len(summary_data) >= 2:
-        #     st.subheader("🔍 Scenario Insights")
-
-        #     base_file = selected_files[0]
-        #     base_data = json.load(open(os.path.join(SCENARIOS_DIR, base_file)))
-        #     base_name = base_data["name"]
-        #     base_years = sum(y for c, y in base_data["contributions"])
-        #     base_capital = base_data["capital"]
-        #     base_contrib_total = sum(c * y for c, y in base_data["contributions"])
-        #     base_invested = base_capital + base_contrib_total
-        #     base_outcome = base_data["future_value"]
-
-        #     insights = []
-
-        #     for i in range(1, len(selected_files)):
-        #         compare_file = selected_files[i]
-        #         compare_data = json.load(open(os.path.join(SCENARIOS_DIR, compare_file)))
-        #         compare_name = compare_data["name"]
-        #         compare_years = sum(y for c, y in compare_data["contributions"])
-        #         compare_capital = compare_data["capital"]
-        #         compare_contrib_total = sum(c * y for c, y in compare_data["contributions"])
-        #         compare_invested = compare_capital + compare_contrib_total
-        #         compare_outcome = compare_data["future_value"]
-
-        #         year_diff = compare_years - base_years
-        #         cost_diff = compare_invested - base_invested
-        #         outcome_diff = compare_outcome - base_outcome
-
-        #         # Friendly phrasing
-        #         year_text = f"{abs(year_diff)} year{'s' if abs(year_diff) != 1 else ''} " + ("longer" if year_diff > 0 else "shorter" if year_diff < 0 else "with the same duration")
-        #         cost_text = f"more expensive by ${abs(cost_diff):,.0f}" if cost_diff > 0 else f"cheaper by ${abs(cost_diff):,.0f}" if cost_diff < 0 else "same cost"
-        #         outcome_text = f" earned ${abs(outcome_diff):,.0f} more than '{base_name}'" if outcome_diff > 0 else f" earned ${abs(outcome_diff):,.0f} less than '{base_name}'" if outcome_diff < 0 else "same final amount"
-
-        #         insights.append(f"Compared to {base_name}, {compare_name} was {year_text}, {cost_text}, and  {outcome_text}.")
-
-        #     for line in insights:
-        #         st.write("- " + line)
-        # else:
-        #     st.info("Select at least two scenarios to view insights.")
         
         # Final ranking
         st.subheader("🏆 Ranked Retirement Plans")
@@ -203,7 +327,20 @@ def show_retirement_planner():
         ranking = []
         for file in selected_files:
             data = json.load(open(os.path.join(SCENARIOS_DIR, file)))
-            contrib_total = sum(c * y for c, y in data["contributions"])
+            
+            if "contribution_phases" in data:
+                # New format
+                total_years = data.get("total_years", 30)
+                yearly_contributions = np.zeros(total_years)
+                for phase in data["contribution_phases"]:
+                    start = phase['start_year']
+                    end = start + phase['duration']
+                    yearly_contributions[start:end] += phase['amount']
+                contrib_total = sum(yearly_contributions)
+            else:
+                # Old format
+                contrib_total = sum(c * y for c, y in data["contributions"])
+            
             invested_total = data["capital"] + contrib_total
             future_value = data["future_value"]
 
