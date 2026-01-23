@@ -1,7 +1,6 @@
 services:
   retirement-planner:
     build: .
-    container_name: retirement-planner
     image: retirement-planner
     container_name: retirement-planner
     restart: unless-stopped
