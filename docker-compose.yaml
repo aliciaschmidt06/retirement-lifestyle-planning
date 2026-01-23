@@ -2,6 +2,7 @@ services:
   retirement-planner:
     build: .
     image: retirement-planner
+    container_name: retirement-planner
     restart: unless-stopped
     ports:
       - "8502:8502"
