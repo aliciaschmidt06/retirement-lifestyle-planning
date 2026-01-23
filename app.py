@@ -7,7 +7,7 @@ st.set_page_config(page_title="Retirement Lifestyle Planner", layout="wide")
 
 # Sidebar Navigation
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Financial Snapshot", "Retirement Planner"])
+page = st.sidebar.radio("Go to", ["Financial Snapshot", "Retirement Planner"], index=1)
 
 # Route to pages
 if page == "Financial Snapshot":
